@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#080b18">
+<title>Panel del organizador · Despedida de Fin de Año</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/config.js"></script>
+<script>
+/* Cliente Supabase simulado, solo para probar el panel. */
+(function(){
+  var KEY="invitacion.mockdb";
+  var db=[]; try{ db=JSON.parse(sessionStorage.getItem(KEY)||"[]"); }catch(e){}
+  function save(){ try{ sessionStorage.setItem(KEY,JSON.stringify(db)); }catch(e){} }
+  window.mockDB=db;
+  var firmado=false;
+
+  function ejecutar(s){
+    if(s.op==="select"){
+      var out=db.filter(function(r){ return Object.keys(s.filters).every(function(k){ return String(r[k])===String(s.filters[k]); }); });
+      return Promise.resolve({data:out.map(function(r){return Object.assign({},r);}),error:null});
+    }
+    if(s.op==="insert"){
+      var row=Object.assign({id:"id-"+(db.length+1),token:"tok-"+(db.length+1),creado_en:new Date().toISOString(),
+        actualizado_en:new Date().toISOString(),confirmado_en:null},s.payload);
+      if(row.estado==="asistire") row.confirmado_en=row.creado_en;
+      db.push(row); save(); return Promise.resolve({data:[row],error:null});
+    }
+    if(s.op==="update"){
+      var r=db.filter(function(x){return x.id===s.filters.id;})[0];
+      if(!r) return Promise.resolve({data:[],error:null});
+      Object.assign(r,s.payload); r.actualizado_en=new Date().toISOString();
+      if(r.estado==="asistire"&&!r.confirmado_en) r.confirmado_en=r.actualizado_en;
+      if(r.estado!=="asistire") r.confirmado_en=null;
+      save(); return Promise.resolve({data:[Object.assign({},r)],error:null});
+    }
+    if(s.op==="delete"){
+      var i=db.findIndex(function(x){return x.id===s.filters.id;});
+      if(i>=0) db.splice(i,1); save(); return Promise.resolve({data:[],error:null});
+    }
+    return Promise.resolve({data:null,error:{message:"Operación no soportada"}});
+  }
+
+  function query(op,payload){
+    var s={op:op,payload:payload||null,filters:{}};
+    var api={
+      select:function(){return api;},
+      order:function(){return ejecutar(s);},
+      eq:function(k,v){s.filters[k]=v;return api;},
+      insert:function(p){s.op="insert";s.payload=p;return api;},
+      update:function(p){s.op="update";s.payload=p;return api;},
+      delete:function(){s.op="delete";return api;},
+      then:function(res,rej){return ejecutar(s).then(res,rej);}
+    };
+    return api;
+  }
+
+  var client={
+    from:function(){return query("select");},
+    rpc:async function(name){ if(name==="es_admin") return {data:firmado,error:null}; return {data:null,error:null}; },
+    auth:{
+      getSession:async function(){return {data:{session:firmado?{user:{email:"organizador@tudominio.com"}}:null}};},
+      signInWithPassword:async function(p){
+        if(p.email==="organizador@tudominio.com"&&p.password==="clave123"){ firmado=true; return {data:{user:{email:p.email}},error:null}; }
+        return {data:null,error:{message:"Credenciales inválidas"}};
+      },
+      signOut:async function(){firmado=false;return {error:null};}
+    }
+  };
+  window.APP_CONFIG.SUPABASE_URL="https://proyecto-de-pruebas.supabase.co";
+  window.APP_CONFIG.SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiJ9."+"x".repeat(80)+".mock";
+  window.supabase={createClient:function(){return client;}};
+})();
+</script>
+<script defer src="../assets/supabase.js"></script>
+<script defer src="../assets/supabase.js"></script>
+<script defer src="../assets/logica.js"></script>
+<script defer src="../assets/admin.js"></script>
+</head>
+<body>
+<div class="admin-shell wrap">
+  <header class="admin-head">
+    <div>
+      <div class="kicker">Solo para vos</div>
+      <h2>Panel del organizador</h2>
+    </div>
+    <div class="top-actions">
+      <a class="icon-btn" href="index.html">← Ver invitación</a>
+      <button class="icon-btn hidden" id="logoutBtn" type="button">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <div class="setup hidden" id="setupNotice">
+    <b>Falta conectar Supabase.</b> Completa <code>assets/config.js</code> y ejecuta <code>sql/schema.sql</code>.
+  </div>
+  <div class="error-box" id="loginError" role="alert"></div>
+
+  <section class="panel login-card" id="loginCard">
+    <div class="kicker">Área del organizador</div>
+    <h3 style="font-family:Georgia,serif;font-weight:400;font-size:1.6rem;margin:8px 0">Entrá con tu correo</h3>
+    <p style="color:var(--muted);margin:0">Usá el correo y la contraseña que creaste en Supabase Auth.</p>
+    <form id="loginForm" style="margin-top:22px">
+      <label class="field">Correo electrónico
+        <input type="email" id="email" autocomplete="username" required placeholder="organizador@tudominio.com">
+      </label>
+      <label class="field">Contraseña
+        <input type="password" id="password" autocomplete="current-password" required placeholder="••••••••">
+      </label>
+      <button class="btn primary" type="submit" id="loginBtn">Entrar al panel</button>
+    </form>
+  </section>
+
+  <section id="adminPanel" class="admin-grid hidden">
+    <div class="stat-grid" id="stats"></div>
+
+    <div class="panel">
+      <div class="section-head" style="margin-bottom:14px">
+        <div><div class="kicker">Gestión</div><h2 style="font-size:1.6rem">Agregar o editar invitado</h2></div>
+        <button class="btn small ghost hidden" type="button" id="cancelEditBtn">Cancelar edición</button>
+      </div>
+      <form id="adminForm" class="admin-toolbar" novalidate>
+        <input type="hidden" id="regId">
+        <label class="field">Nombre<input type="text" id="admNombre" maxlength="80" required placeholder="Nombre"></label>
+        <label class="field">Apellido<input type="text" id="admApellido" maxlength="80" required placeholder="Apellido"></label>
+        <label class="field">Teléfono<input type="tel" id="admTelefono" maxlength="30" placeholder="Opcional"></label>
+        <label class="field">Acompañantes
+          <select id="admAcompanantes"></select>
+        </label>
+        <label class="field">Estado
+          <select id="admEstado">
+            <option value="asistire">ASISTIRÉ</option>
+            <option value="no_podre">NO PODRÉ ASISTIR</option>
+            <option value="cancelado">CANCELADO</option>
+          </select>
+        </label>
+        <button class="btn primary" type="submit" id="admSubmit">Agregar invitado</button>
+      </form>
+      <div class="error-box" id="adminError" role="alert"></div>
+    </div>
+
+    <div class="panel">
+      <div class="section-head" style="margin-bottom:14px">
+        <div><div class="kicker">Registros</div><h2 style="font-size:1.6rem">Todos los invitados</h2></div>
+        <div class="top-actions">
+          <button class="btn small ghost" type="button" id="recargarBtn">Recargar</button>
+          <button class="btn small primary" type="button" id="exportarBtn">Exportar CSV para Excel</button>
+        </div>
+      </div>
+      <div class="admin-toolbar">
+        <label class="field">Buscar<input type="text" id="buscar" placeholder="Nombre, apellido o teléfono"></label>
+        <label class="field">Filtrar por estado
+          <select id="filtroEstado">
+            <option value="">Todos</option>
+            <option value="asistire">ASISTIRÉ</option>
+            <option value="no_podre">NO PODRÉ ASISTIR</option>
+            <option value="cancelado">CANCELADO</option>
+          </select>
+        </label>
+      </div>
+      <div class="tabla-wrap">
+        <table>
+          <thead><tr><th>Nombre</th><th>Apellido</th><th>Teléfono</th><th>Acomp.</th><th>Estado</th><th>Respondido</th><th>Acciones</th></tr></thead>
+          <tbody id="tablaBody"></tbody>
+        </table>
+      </div>
+      <div class="estado-lista" id="adminStatus">Cargando…</div>
+    </div>
+  </section>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

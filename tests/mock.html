@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#080b18">
+<meta name="description" content="Tarjeta de invitación a la Despedida de Fin de Año. Confirmá tu asistencia y mirá quién confirmó.">
+<title>¡Despedida de Fin de Año!</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/config.js"></script>
+<script>
+/* Cliente Supabase simulado, solo para pruebas de UI. */
+(function(){
+  var KEY="invitacion.mockdb";
+  var db=[];
+  try{ db=JSON.parse(sessionStorage.getItem(KEY)||"[]"); }catch(e){ db=[]; }
+  function save(){ try{ sessionStorage.setItem(KEY,JSON.stringify(db)); }catch(e){} }
+  function norm(s){ return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLowerCase(); }
+  function clave(d){ return [d.nombre,d.apellido,String(d.telefono||"").replace(/\D/g,"")].map(norm).join("|"); }
+  function vista(r){ return {nombre:r.nombre,apellido:r.apellido,acompanantes:r.acompanantes,confirmado_en:r.confirmado_en}; }
+  var client={
+    rpc: async function(name,p){
+      if(name==="confirmar_asistencia"){
+        var row={ id:"id-"+db.length, token:"tok-"+(db.length+1), nombre:p.p_nombre.trim(), apellido:p.p_apellido.trim(),
+          telefono:p.p_telefono, acompanantes:p.p_estado==="asistire"?Number(p.p_acompanantes):0,
+          estado:p.p_estado, confirmado_en:new Date().toISOString() };
+        if(db.some(function(r){return clave(r)===clave(row);})) return {data:null,error:{code:"23505",message:"DUPLICADO"}};
+        db.push(row); save(); return {data:[row],error:null};
+      }
+      if(name==="obtener_mi_confirmacion"){
+        var found=db.filter(function(r){return r.token===p.p_token;});
+        return {data:found,error:found.length?null:{code:"P0002",message:"NO_ENCONTRADO"}};
+      }
+      if(name==="actualizar_mi_confirmacion"){
+        var r=db.filter(function(x){return x.token===p.p_token;})[0];
+        if(!r) return {data:null,error:{code:"P0002",message:"NO_ENCONTRADO"}};
+        if(p.p_cancelar){ r.estado="cancelado"; r.acompanantes=0; }
+        else{
+          var tmp={nombre:p.p_nombre,apellido:p.p_apellido,telefono:p.p_telefono};
+          if(db.some(function(x){return x.token!==r.token && clave(x)===clave(tmp);})) return {data:null,error:{code:"23505",message:"DUPLICADO"}};
+          r.nombre=p.p_nombre.trim(); r.apellido=p.p_apellido.trim(); r.telefono=p.p_telefono;
+          r.acompanantes=p.p_estado==="asistire"?Number(p.p_acompanantes):0; r.estado=p.p_estado;
+        }
+        save(); return {data:[r],error:null};
+      }
+      if(name==="listado_confirmados") return {data:db.filter(function(r){return r.estado==="asistire";}).map(vista),error:null};
+      if(name==="totales_publicos"){
+        var a=db.filter(function(r){return r.estado==="asistire";});
+        var c=a.reduce(function(s,r){return s+Number(r.acompanantes||0);},0);
+        return {data:[{personas:a.length,acompanantes:c,total:a.length+c}],error:null};
+      }
+      return {data:null,error:{message:"RPC desconocida"}};
+    },
+    auth:{getSession:async function(){return {data:{session:null}};}}
+  };
+  window.APP_CONFIG.SUPABASE_URL="https://proyecto-de-pruebas.supabase.co";
+  window.APP_CONFIG.SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiJ9."+"x".repeat(80)+".mock";
+  window.APP_CONFIG.EVENTO.FOTO_FONDO="../assets/foto.jpg";
+  window.supabase={createClient:function(){return client;}};
+  window.mockDB=db;
+})();
+</script>
+<script defer src="../assets/supabase.js"></script>
+<script defer src="../assets/supabase.js"></script>
+<script defer src="../assets/logica.js"></script>
+<script defer src="../assets/app.js"></script>
+</head>
+<body>
+<canvas id="fx" aria-hidden="true"></canvas>
+
+<main class="wrap tarjeta-wrap">
+  <div class="setup hidden" id="setupNotice">
+    <b>Vista previa:</b> falta conectar Supabase. Completá <code>assets/config.js</code> y ejecutá <code>sql/schema.sql</code>.
+  </div>
+
+  <article class="tarjeta" id="tarjeta">
+    <div class="tarjeta-foto" id="tarjetaFoto" aria-hidden="true"></div>
+
+    <div class="tarjeta-body">
+      <div class="eyebrow">Cerramos el año de día</div>
+      <h1>¡Despedida <span>de Fin de Año!</span></h1>
+      <p class="lead" id="bienvenida"></p>
+
+      <p class="datos">
+        <span id="d-fecha"></span> · <span id="d-hora"></span><br>
+        <span id="d-lugar"></span> · <a id="mapaBtn" class="mini-link" href="#" target="_blank" rel="noopener noreferrer">Maps ↗</a>
+      </p>
+
+      <div class="countdown" id="countdown" role="timer" aria-label="Cuenta regresiva">
+        <div class="unit"><b id="cd-d">--</b><small>días</small></div>
+        <div class="unit"><b id="cd-h">--</b><small>horas</small></div>
+        <div class="unit"><b id="cd-m">--</b><small>min</small></div>
+        <div class="unit"><b id="cd-s">--</b><small>seg</small></div>
+      </div>
+
+      <div class="bloque" id="confirmar">
+        <h2>¿Nos vemos?</h2>
+        <form id="rsvpForm" novalidate>
+          <label class="field">Nombre
+            <input type="text" id="nombre" name="nombre" autocomplete="given-name" placeholder="Tu nombre" required maxlength="80">
+          </label>
+          <label class="field">Apellido
+            <input type="text" id="apellido" name="apellido" autocomplete="family-name" placeholder="Tu apellido" required maxlength="80">
+          </label>
+          <label class="field">Teléfono <span class="opcional">(opcional)</span>
+            <input type="tel" id="telefono" name="telefono" autocomplete="tel" placeholder="+54 9 11 1234-5678" maxlength="30">
+          </label>
+          <div class="field">Tu respuesta
+            <div class="pills" role="radiogroup" aria-label="Confirmación">
+              <label class="pill"><input type="radio" name="estado" value="asistire" checked><span>ASISTIRÉ</span></label>
+              <label class="pill"><input type="radio" name="estado" value="no_podre"><span>NO PODRÉ ASISTIR</span></label>
+            </div>
+          </div>
+          <div class="error-box" id="formError" role="alert"></div>
+          <button class="btn primary" type="submit" id="submitBtn">Enviar confirmación</button>
+        </form>
+
+        <div class="edit-banner hidden" id="editBanner">
+          Cambiando los datos de tu confirmación.
+          <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn small danger" type="button" id="cancelarBtn">Cancelar mi confirmación</button>
+            <button class="btn small ghost" type="button" id="salirEditBtn">Salir</button>
+          </div>
+        </div>
+
+        <div class="confirm" id="confirmPanel" aria-live="polite">
+          <div class="check" aria-hidden="true">✓</div>
+          <h3 id="confirmTitulo">¡Anotado!</h3>
+          <p id="confirmTexto"></p>
+          <div class="privado">
+            <h4>Tu enlace privado</h4>
+            <p>Guardalo para modificar o cancelar tu respuesta.</p>
+            <div class="link-row">
+              <input type="text" id="linkEditar" readonly aria-label="Enlace privado de edición">
+              <button class="btn small ghost" type="button" id="copiarLink">Copiar</button>
+            </div>
+            <a class="btn small ghost" id="whatsappLink" href="#" target="_blank" rel="noopener noreferrer">Enviármelo por WhatsApp ↗</a>
+            <div style="margin-top:12px"><button class="btn small ghost" type="button" id="volverForm">Volver al formulario</button></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bloque" id="confirmados">
+        <h2>¡Ya confirmaron!</h2>
+        <div class="totales">
+          <div class="total"><b id="totPersonas">0</b><span>Confirmados</span></div>
+          <div class="total"><b id="totGeneral">0</b><span>Total</span></div>
+        </div>
+        <div class="lista" id="listaConfirmados" aria-live="polite"></div>
+        <div class="estado-lista" id="estadoLista">Cargando lista…</div>
+      </div>
+
+      <footer class="tarjeta-foot">Nos vemos, <b id="anfitrion"></b> · <span id="year"></span></footer>
+    </div>
+  </article>
+</main>
+
+<div id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
