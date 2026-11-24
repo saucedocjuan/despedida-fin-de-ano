@@ -70,7 +70,7 @@ Después completá los datos reales del evento:
 fechaISO, finISO, fechaTexto, horaInicio, lugar, mapa, anfitrion, bienvenida
 ```
 
-Por defecto quedó **jueves 31 de diciembre de 2026, 13:00 a 18:00** (de día). Cambiá `fechaISO`, `finISO`, `fechaTexto` y `horaInicio` si hace falta.
+Datos reales cargados: **sábado 19 de diciembre de 2026, 12:00**, en **Gabriel Carrasco 1916**. Si querés cambiar el fin estimado (18:00) o el anfitrión, editá `finISO` y `anfitrion`.
 
 La foto ya está en `assets/foto.jpg` y configurada en `FOTO_FONDO`. Si querés cambiarla, reemplazá el archivo manteniendo el nombre o actualizá la ruta.
 
