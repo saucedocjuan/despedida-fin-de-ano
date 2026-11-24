@@ -5,7 +5,8 @@
   var key = String(c.SUPABASE_ANON_KEY || "");
 
   var urlOk = /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url);
-  var keyOk = key.length > 60 && !/^TU_|PLACEHOLDER|YOUR_/i.test(key);
+  var keyOk = (key.indexOf("sb_publishable_") === 0 && key.length > 30) ||
+              (key.length > 60 && !/^TU_|PLACEHOLDER|YOUR_/i.test(key));
 
   window.APP_READY = urlOk && keyOk && !!window.supabase;
 
