@@ -7,7 +7,7 @@
    ============================================================ */
 window.APP_CONFIG = {
   SUPABASE_URL: "https://euckzzihesnlnehfxivf.supabase.co",
-  SUPABASE_ANON_KEY: "TU_ANON_KEY",
+  SUPABASE_ANON_KEY: "sb_publishable_4DzK1vbmzHK39LkC4WNwUg_3k5SJF_k",
 
   EVENTO: {
     titulo: "¡Despedida de Fin de Año!",
