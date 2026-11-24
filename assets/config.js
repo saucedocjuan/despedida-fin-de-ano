@@ -19,7 +19,7 @@ window.APP_CONFIG = {
     mapa: "https://www.google.com/maps/search/?api=1&query=" +
           encodeURIComponent("Gabriel Carrasco 1916"),
     anfitrion: "la organización",
-    bienvenida: "Nos juntamos de día, con comida, risas y un brindis temprano para cerrar el año. Ven cómodo y con ganas, lo demás lo ponemos nosotros.",
+    bienvenida: "No prometemos que sea tranquilo, pero sí que nos vamos a divertir",
     /* Foto de portada optimizada. Si querés sacarla, dejá "" */
     FOTO_FONDO: "assets/foto.jpg"
   },
